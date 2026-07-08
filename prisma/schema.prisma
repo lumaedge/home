@@ -40,6 +40,8 @@ model Corner {
   home      Home         @relation(fields: [homeId], references: [id])
   entries   EntryCorner[]
   createdAt DateTime     @default(now())
+
+  @@unique([homeId, name])
 }
 
 model EntryCorner {
