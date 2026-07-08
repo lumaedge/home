@@ -53,3 +53,19 @@ model EntryCorner {
 
   @@id([entryId, cornerId])
 }
+
+model PasskeyCredential {
+  id         String   @id
+  homeId     String
+  personName String
+  publicKey  Bytes
+  counter    BigInt   @default(0)
+  transports String[]
+  createdAt  DateTime @default(now())
+}
+
+model Challenge {
+  id        String   @id @default(cuid())
+  value     String   @unique
+  expiresAt DateTime
+}
