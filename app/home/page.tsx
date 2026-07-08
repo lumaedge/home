@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { loadIdentity, apiFetch } from '@/lib/identity'
-import { getDailySentence } from '@/lib/sentences'
+import { loadIdentity, apiFetch, getPersonLabel } from '@/lib/identity'
+import { HOME_CONFIG } from '@/lib/home-config'
 import EntryCard from '@/components/EntryCard'
 import Link from 'next/link'
 
@@ -119,7 +119,6 @@ export default function HomePage() {
     return () => clearInterval(interval)
   }, [router])
 
-  const sentence = getDailySentence()
   const todayEntries = entries.filter((e: any) => {
     const d = new Date(e.createdAt)
     return d.toDateString() === new Date().toDateString()
@@ -139,14 +138,14 @@ export default function HomePage() {
         <div className="text-center">
           <p className="mb-1 text-[10px] uppercase tracking-widest text-warm-300">{time.label}</p>
           <h1 className="font-serif text-2xl text-warm-800">
-            Welcome home, {name}.
+            Welcome home.
           </h1>
           <p className="mt-3 text-sm italic leading-relaxed text-warm-400">{voice}</p>
 
           {partnerPresent && (
             <div className="mt-5 flex items-center justify-center gap-2 text-xs text-warm-400">
               <span className="flex h-2 w-2 rounded-full bg-warm-400 shadow-[0_0_8px_rgba(168,115,70,0.5)]" />
-              {partnerName} is home
+              {HOME_CONFIG.personalMode ? 'You\'re both home' : `${partnerName} is home`}
             </div>
           )}
         </div>

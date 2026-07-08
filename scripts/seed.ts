@@ -1,13 +1,18 @@
 import { PrismaClient } from '@prisma/client'
+import { HOME_CONFIG } from '../lib/home-config'
 import { ROOMS } from '../lib/corners'
 
 const prisma = new PrismaClient()
 
 async function main() {
   const home = await prisma.home.upsert({
-    where: { inviteCode: 'gentle-river' },
+    where: { inviteCode: HOME_CONFIG.inviteCode },
     update: {},
-    create: { inviteCode: 'gentle-river', person1: 'Alice', person2: 'Bob' },
+    create: {
+      inviteCode: HOME_CONFIG.inviteCode,
+      person1: HOME_CONFIG.person1.name,
+      person2: HOME_CONFIG.person2.name,
+    },
   })
 
   for (const r of ROOMS) {
@@ -19,20 +24,30 @@ async function main() {
   }
 
   const existing = await prisma.entry.count({ where: { homeId: home.id } })
+
   if (existing === 0) {
+    await prisma.entry.create({
+      data: {
+        content: HOME_CONFIG.welcomeNote,
+        authorName: HOME_CONFIG.person1.name,
+        homeId: home.id,
+        createdAt: new Date(),
+      },
+    })
+
     await prisma.entry.createMany({
       data: [
-        { content: 'Today felt heavy. Not bad, just... heavy. Like the air was thicker than usual.', authorName: 'Alice', homeId: home.id, createdAt: new Date(Date.now() - 86400000) },
-        { content: "I think patience is love's quietest form.", authorName: 'Bob', homeId: home.id, createdAt: new Date(Date.now() - 72000000) },
-        { content: 'I finally finished that project. Small win, but it counts.', authorName: 'Alice', homeId: home.id, createdAt: new Date(Date.now() - 36000000) },
-        { content: 'Remember that rainy afternoon when we just sat and watched the window? That was a good day.', authorName: 'Bob', homeId: home.id, createdAt: new Date(Date.now() - 18000000) },
-        { content: '...', authorName: 'Alice', homeId: home.id, createdAt: new Date(Date.now() - 9000000) },
-        { content: 'I dreamt we were in a house with too many doors. Every room was empty but warm.', authorName: 'Bob', homeId: home.id, createdAt: new Date(Date.now() - 3600000) },
+        { content: 'Today felt heavy. Not bad, just... heavy. Like the air was thicker than usual.', authorName: HOME_CONFIG.person1.name, homeId: home.id, createdAt: new Date(Date.now() - 86400000) },
+        { content: "I think patience is love's quietest form.", authorName: HOME_CONFIG.person2.name, homeId: home.id, createdAt: new Date(Date.now() - 72000000) },
+        { content: 'I finally finished that project. Small win, but it counts.', authorName: HOME_CONFIG.person1.name, homeId: home.id, createdAt: new Date(Date.now() - 36000000) },
+        { content: 'Remember that rainy afternoon when we just sat and watched the window? That was a good day.', authorName: HOME_CONFIG.person2.name, homeId: home.id, createdAt: new Date(Date.now() - 18000000) },
+        { content: '...', authorName: HOME_CONFIG.person1.name, homeId: home.id, createdAt: new Date(Date.now() - 9000000) },
+        { content: 'I dreamt we were in a house with too many doors. Every room was empty but warm.', authorName: HOME_CONFIG.person2.name, homeId: home.id, createdAt: new Date(Date.now() - 3600000) },
       ],
     })
   }
 
-  console.log('Seeded! Use key: gentle-river')
+  console.log('Seeded!')
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect())

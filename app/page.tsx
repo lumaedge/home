@@ -2,163 +2,144 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { saveIdentity, loadIdentity } from '@/lib/identity'
-
-type Step = 'start' | 'name' | 'action' | 'join' | 'key'
+import { HOME_CONFIG } from '@/lib/home-config'
+import { isFirstVisit, loadIdentity } from '@/lib/identity'
+import WelcomeTour from '@/components/WelcomeTour'
 
 export default function LandingPage() {
   const router = useRouter()
-  const [step, setStep] = useState<Step>('start')
-  const [name, setName] = useState('')
-  const [key, setKey] = useState('')
-  const [createdKey, setCreatedKey] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [showTour, setShowTour] = useState(false)
+  const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    const { homeId } = loadIdentity()
-    if (homeId) router.replace('/home')
+    if (!HOME_CONFIG.personalMode) {
+      setChecking(false)
+      return
+    }
+    if (!isFirstVisit()) {
+      router.replace('/home')
+      return
+    }
+    setShowTour(true)
+    setChecking(false)
   }, [router])
 
+  if (HOME_CONFIG.personalMode) {
+    if (checking) return null
+    if (showTour) {
+      return <WelcomeTour onDone={() => router.replace('/home')} />
+    }
+    return null
+  }
+
+  const [name, setName] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [error, setError] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [step, setStep] = useState<'begin' | 'name' | 'action' | 'create' | 'join' | 'created'>('begin')
+  const [createdKey, setCreatedKey] = useState('')
+
   async function handleCreate() {
-    if (!name.trim()) return
-    setLoading(true)
+    setCreating(true)
     setError('')
-    const res = await fetch('/api/home', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', name: name.trim() }),
-    })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error); setLoading(false); return }
-    setCreatedKey(data.inviteCode)
-    saveIdentity(data.homeId, name.trim())
-    setLoading(false)
+    try {
+      const res = await fetch('/api/home', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', name }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'something went wrong'); return }
+      localStorage.setItem('home_id', data.homeId)
+      localStorage.setItem('person_name', name)
+      setCreatedKey(data.inviteCode)
+      setStep('created')
+    } catch { setError('could not reach home') } finally { setCreating(false) }
   }
 
   async function handleJoin() {
-    if (!name.trim() || !key.trim()) return
-    setLoading(true)
+    setJoining(true)
     setError('')
-    const res = await fetch('/api/home', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'join', name: name.trim(), inviteCode: key.trim() }),
-    })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error); setLoading(false); return }
-    saveIdentity(data.homeId, name.trim())
-    router.push('/home')
-  }
-
-  if (createdKey) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 text-4xl">🏡</div>
-        <h1 className="mb-2 font-serif text-2xl text-warm-800">Your Home is ready</h1>
-        <p className="mb-6 text-xs text-warm-500">
-          Share this key to open your home to someone.
-        </p>
-        <div className="mx-auto mb-8 inline-block rounded-2xl bg-warm-100 px-8 py-4">
-          <span className="font-serif text-xl tracking-wide text-warm-700">{createdKey}</span>
-        </div>
-        <button onClick={() => router.push('/home')} className="btn-primary w-full max-w-xs">
-          Enter your Home
-        </button>
-      </div>
-    )
-  }
-
-  if (step === 'start') {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="mx-auto max-w-sm text-center">
-          <div className="mb-6 text-5xl">🏡</div>
-          <h1 className="mb-2 font-serif text-3xl font-light text-warm-800">Home</h1>
-          <p className="mb-8 text-xs text-warm-400 leading-relaxed">
-            A quiet, shared space for two people<br />to grow closer over time.
-          </p>
-          <button onClick={() => setStep('name')} className="btn-primary w-full">
-            Begin
-          </button>
-        </div>
-        <footer className="mt-16 text-center text-xs text-warm-300">
-          Whatever today looked like...<br />
-          <span className="text-warm-400">You are welcome here.</span>
-        </footer>
-      </div>
-    )
-  }
-
-  if (step === 'name') {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
-          <div className="mb-6 text-3xl">🌿</div>
-          <h1 className="mb-6 font-serif text-xl text-warm-800">Who are you?</h1>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
-            className="input mb-4 text-center"
-            autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && name.trim() && setStep('action')}
-          />
-          <button
-            onClick={() => name.trim() && setStep('action')}
-            disabled={!name.trim()}
-            className="btn-primary w-full disabled:opacity-40"
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (step === 'action') {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="w-full max-w-sm text-center">
-          <div className="mb-3 text-3xl">🏡</div>
-          <p className="mb-2 font-serif text-lg text-warm-800">Hello, {name}.</p>
-          <p className="mb-8 text-xs text-warm-400">What would you like to do?</p>
-          <div className="space-y-3">
-            <button onClick={handleCreate} disabled={loading} className="btn-primary w-full">
-              Create a Home
-            </button>
-            <button onClick={() => setStep('join')} className="btn-ghost w-full">
-              Come Home
-            </button>
-          </div>
-          {error && <p className="mt-4 text-xs text-red-500">{error}</p>}
-        </div>
-      </div>
-    )
+    try {
+      const res = await fetch('/api/home', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'join', name, inviteCode }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'something went wrong'); return }
+      localStorage.setItem('home_id', data.homeId)
+      localStorage.setItem('person_name', name)
+      router.push('/home')
+    } catch { setError('could not reach home') } finally { setJoining(false) }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm text-center">
-        <div className="mb-6 text-3xl">🔑</div>
-        <h1 className="mb-2 font-serif text-xl text-warm-800">Come Home</h1>
-        <p className="mb-6 text-xs text-warm-400">Enter the key someone shared with you.</p>
-        <input
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="e.g. gentle-river"
-          className="input mb-4 text-center lowercase"
-          autoFocus
-          onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-        />
-        <button onClick={handleJoin} disabled={loading || !key.trim()} className="btn-primary w-full disabled:opacity-40">
-          {loading ? 'Opening the door...' : 'Enter'}
-        </button>
-        {error && <p className="mt-4 text-xs text-red-500">{error}</p>}
-        <button onClick={() => setStep('action')} className="btn-ghost mt-4 text-xs">
-          ← Back
-        </button>
-      </div>
+    <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+      {step === 'begin' && (
+        <div className="fade-in space-y-4">
+          <div className="text-4xl">🏡</div>
+          <h1 className="font-serif text-2xl text-warm-800">Home</h1>
+          <p className="text-sm italic text-warm-400">A quiet, shared space for two people to grow closer over time.</p>
+          <button onClick={() => setStep('name')} className="btn-primary mt-4">Begin</button>
+        </div>
+      )}
+
+      {step === 'name' && (
+        <div className="fade-in space-y-4">
+          <div className="text-3xl">🌿</div>
+          <p className="font-serif text-warm-600">Who are you?</p>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="input text-center" autoFocus />
+          <button onClick={() => name.trim() && setStep('action')} disabled={!name.trim()} className="btn-primary disabled:opacity-40">Next</button>
+        </div>
+      )}
+
+      {step === 'action' && (
+        <div className="fade-in space-y-4">
+          <p className="font-serif text-warm-600">Hello, {name}. What would you like to do?</p>
+          <div className="flex flex-col gap-3">
+            <button onClick={() => setStep('create')} className="btn-primary">Create a Home</button>
+            <button onClick={() => setStep('join')} className="btn-ghost">Come Home</button>
+          </div>
+        </div>
+      )}
+
+      {step === 'create' && (
+        <div className="fade-in space-y-4">
+          <button onClick={() => setStep('action')} className="btn-ghost text-xs">← Back</button>
+          <p className="font-serif text-warm-600">Creating your home...</p>
+          <button onClick={handleCreate} disabled={creating} className="btn-primary disabled:opacity-40">
+            {creating ? 'Building...' : 'Build it'}
+          </button>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+      )}
+
+      {step === 'join' && (
+        <div className="fade-in space-y-4">
+          <button onClick={() => setStep('action')} className="btn-ghost text-xs">← Back</button>
+          <div className="text-2xl">🔑</div>
+          <p className="font-serif text-warm-600">Enter the key someone shared with you.</p>
+          <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toLowerCase())} placeholder="e.g. gentle-river" className="input text-center" autoFocus />
+          <button onClick={handleJoin} disabled={!inviteCode.trim() || joining} className="btn-primary disabled:opacity-40">
+            {joining ? 'Opening the door...' : 'Enter'}
+          </button>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+      )}
+
+      {step === 'created' && (
+        <div className="fade-in space-y-4">
+          <div className="text-3xl">🏡</div>
+          <p className="font-serif text-warm-600">Your home is ready.</p>
+          <p className="text-sm text-warm-400">Share this key with someone you trust.</p>
+          <div className="rounded-xl bg-warm-50 p-4">
+            <p className="font-mono text-lg text-warm-700">{createdKey}</p>
+          </div>
+          <button onClick={() => router.push('/home')} className="btn-primary">Enter your Home</button>
+        </div>
+      )}
     </div>
   )
 }
