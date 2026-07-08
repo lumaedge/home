@@ -1,52 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 
-export async function POST(req: NextRequest) {
-  const homeId = req.headers.get('x-home-id')
-  const personName = req.headers.get('x-person-name')
-  if (!homeId || !personName) {
-    return NextResponse.json({ error: 'home id and name required' }, { status: 400 })
-  }
+async function getMember(session: any) {
+  if (!session?.user?.id) return null
+  return await prisma.homeMember.findFirst({ where: { userId: session.user.id } })
+}
 
-  const home = await prisma.home.findUnique({ where: { id: homeId } })
-  if (!home) return NextResponse.json({ error: 'home not found' }, { status: 404 })
+export async function POST() {
+  const session = await auth()
+  const member = await getMember(session)
+  if (!member) return NextResponse.json({ error: 'no home' }, { status: 400 })
 
-  const isPerson1 = home.person1 === personName
-  if (isPerson1) {
-    await prisma.home.update({ where: { id: homeId }, data: { person1SeenAt: new Date() } })
-  } else if (home.person2 === personName) {
-    await prisma.home.update({ where: { id: homeId }, data: { person2SeenAt: new Date() } })
-  }
+  await prisma.homeMember.update({
+    where: { id: member.id },
+    data: { seenAt: new Date() },
+  })
 
   return NextResponse.json({ ok: true })
 }
 
-export async function GET(req: NextRequest) {
-  const homeId = req.headers.get('x-home-id')
-  const personName = req.headers.get('x-person-name')
-  if (!homeId || !personName) {
-    return NextResponse.json({ error: 'home id and name required' }, { status: 400 })
-  }
+export async function GET() {
+  const session = await auth()
+  const member = await getMember(session)
+  if (!member) return NextResponse.json({ error: 'no home' }, { status: 400 })
 
-  const home = await prisma.home.findUnique({
-    where: { id: homeId },
-    select: { person1: true, person2: true, person1SeenAt: true, person2SeenAt: true },
+  const allMembers = await prisma.homeMember.findMany({
+    where: { homeId: member.homeId },
   })
-  if (!home) return NextResponse.json({ error: 'home not found' }, { status: 404 })
 
   const now = Date.now()
   const THIRTY_SEC = 30000
 
-  const p1Present = home.person1SeenAt && (now - home.person1SeenAt.getTime()) < THIRTY_SEC
-  const p2Present = home.person2SeenAt && (now - home.person2SeenAt.getTime()) < THIRTY_SEC
-
-  const isP1 = home.person1 === personName
-  const partnerPresent = isP1 ? p2Present : p1Present
-  const partnerName = isP1 ? home.person2 : home.person1
+  const partner = allMembers.find((m) => m.id !== member.id)
+  const present = partner ? (partner.seenAt && (now - partner.seenAt.getTime()) < THIRTY_SEC) : false
 
   return NextResponse.json({
-    present: partnerPresent,
-    partnerName,
-    you: personName,
+    present,
+    partnerName: partner?.personName || null,
   })
 }

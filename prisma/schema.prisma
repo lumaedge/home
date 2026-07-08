@@ -7,6 +7,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts  Account[]
+  sessions  Session[]
+  homes     HomeMember[]
+  passkeys  PasskeyCredential[]
+  entries   Entry[]
+  createdHomes Home[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
 model Home {
   id         String       @id @default(cuid())
   name       String       @default("Home")
@@ -15,21 +66,42 @@ model Home {
   person2         String?
   person1SeenAt   DateTime?
   person2SeenAt   DateTime?
+  creatorId       String?
   entries         Entry[]
   corners         Corner[]
   createdAt       DateTime     @default(now())
+
+  creator   User?       @relation(fields: [creatorId], references: [id])
+  members   HomeMember[]
+}
+
+model HomeMember {
+  id         String    @id @default(cuid())
+  userId     String
+  homeId     String
+  role       String    @default("member")
+  personName String
+  seenAt     DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  home Home @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, homeId])
 }
 
 model Entry {
   id         String       @id @default(cuid())
   content    String
   authorName String
+  authorId   String?
   homeId     String
   home       Home         @relation(fields: [homeId], references: [id])
   corners    EntryCorner[]
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   deletedAt  DateTime?
+
+  author User? @relation(fields: [authorId], references: [id])
 }
 
 model Corner {
@@ -56,12 +128,13 @@ model EntryCorner {
 
 model PasskeyCredential {
   id         String   @id
-  homeId     String
-  personName String
+  userId     String
   publicKey  Bytes
   counter    BigInt   @default(0)
   transports String[]
   createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Challenge {

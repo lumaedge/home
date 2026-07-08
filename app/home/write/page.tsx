@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiFetch } from '@/lib/identity'
 
 function getLight() {
   const h = new Date().getHours()
@@ -19,16 +18,14 @@ export default function WritePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const light = getLight()
 
-  useEffect(() => {
-    textareaRef.current?.focus()
-  }, [])
+  useEffect(() => { textareaRef.current?.focus() }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!content.trim()) return
     setSending(true)
     try {
-      const res = await apiFetch('/api/entries', {
+      const res = await fetch('/api/entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: content.trim() }),

@@ -19,15 +19,15 @@ function getOrigin(): string {
   return 'http://localhost:3000'
 }
 
-export async function beginRegistration(homeId: string, personName: string) {
-  const existing = await prisma.passkeyCredential.findMany({
-    where: { homeId, personName },
-  })
+export async function beginRegistration(userId: string) {
+  const existing = await prisma.passkeyCredential.findMany({ where: { userId } })
+
+  const user = await prisma.user.findUnique({ where: { id: userId } })
 
   const options = await generateRegistrationOptions({
     rpName,
     rpID: getRPID(),
-    userName: `${homeId}:${personName}`,
+    userName: user?.email || userId,
     attestationType: 'none',
     excludeCredentials: existing.map((c) => ({
       id: c.id,
@@ -45,16 +45,9 @@ export async function beginRegistration(homeId: string, personName: string) {
   return options
 }
 
-export async function completeRegistration(
-  homeId: string,
-  personName: string,
-  credential: any,
-  challenge: string,
-) {
+export async function completeRegistration(userId: string, credential: any, challenge: string) {
   const stored = await prisma.challenge.findUnique({ where: { value: challenge } })
-  if (!stored || stored.expiresAt < new Date()) {
-    throw new Error('Challenge expired or not found')
-  }
+  if (!stored || stored.expiresAt < new Date()) throw new Error('Challenge expired or not found')
 
   const verification = await verifyRegistrationResponse({
     response: credential,
@@ -63,17 +56,14 @@ export async function completeRegistration(
     expectedRPID: getRPID(),
   })
 
-  if (!verification.verified || !verification.registrationInfo) {
-    throw new Error('Registration verification failed')
-  }
+  if (!verification.verified || !verification.registrationInfo) throw new Error('Registration verification failed')
 
   const { credential: cred } = verification.registrationInfo
 
   await prisma.passkeyCredential.create({
     data: {
       id: cred.id,
-      homeId,
-      personName,
+      userId,
       publicKey: Buffer.from(cred.publicKey),
       counter: cred.counter,
       transports: cred.transports || [],
@@ -83,17 +73,9 @@ export async function completeRegistration(
   await prisma.challenge.delete({ where: { value: challenge } })
 }
 
-export async function beginLogin(homeId: string) {
-  const creds = await prisma.passkeyCredential.findMany({
-    where: { homeId },
-  })
-
+export async function beginLogin() {
   const options = await generateAuthenticationOptions({
     rpID: getRPID(),
-    allowCredentials: creds.map((c) => ({
-      id: c.id,
-      transports: c.transports as AuthenticatorTransportFuture[],
-    })),
     userVerification: 'preferred',
   })
 
@@ -109,15 +91,9 @@ export async function beginLogin(homeId: string) {
 
 export async function completeLogin(credential: any, challenge: string) {
   const stored = await prisma.challenge.findUnique({ where: { value: challenge } })
-  if (!stored || stored.expiresAt < new Date()) {
-    throw new Error('Challenge expired or not found')
-  }
+  if (!stored || stored.expiresAt < new Date()) throw new Error('Challenge expired or not found')
 
-  const credId = credential.id
-
-  const storedCred = await prisma.passkeyCredential.findUnique({
-    where: { id: credId },
-  })
+  const storedCred = await prisma.passkeyCredential.findUnique({ where: { id: credential.id } })
   if (!storedCred) throw new Error('Credential not found')
 
   const verification = await verifyAuthenticationResponse({
@@ -136,11 +112,11 @@ export async function completeLogin(credential: any, challenge: string) {
   if (!verification.verified) throw new Error('Login verification failed')
 
   await prisma.passkeyCredential.update({
-    where: { id: credId },
+    where: { id: credential.id },
     data: { counter: Number(verification.authenticationInfo.newCounter) },
   })
 
   await prisma.challenge.delete({ where: { value: challenge } })
 
-  return { homeId: storedCred.homeId, personName: storedCred.personName }
+  return { userId: storedCred.userId }
 }

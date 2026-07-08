@@ -5,15 +5,18 @@ import { ROOMS } from '../lib/corners'
 const prisma = new PrismaClient()
 
 async function main() {
-  const home = await prisma.home.upsert({
-    where: { inviteCode: HOME_CONFIG.inviteCode },
-    update: {},
-    create: {
-      inviteCode: HOME_CONFIG.inviteCode,
-      person1: HOME_CONFIG.person1.name,
-      person2: HOME_CONFIG.person2.name,
-    },
-  })
+  // Find or create the home
+  let home = await prisma.home.findFirst({ orderBy: { createdAt: 'asc' } })
+
+  if (!home) {
+    home = await prisma.home.create({
+      data: {
+        inviteCode: 'gentle-river',
+        person1: HOME_CONFIG.person1.name,
+        person2: HOME_CONFIG.person2.name,
+      },
+    })
+  }
 
   for (const r of ROOMS) {
     await prisma.corner.upsert({

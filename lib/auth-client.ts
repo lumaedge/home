@@ -1,42 +1,32 @@
 'use client'
 
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser'
+import { signIn } from 'next-auth/react'
 
-export async function registerPasskey(homeId: string, personName: string) {
-  const res = await fetch('/api/auth/register/begin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ homeId, personName }),
-  })
+export async function registerPasskey() {
+  const res = await fetch('/api/auth/passkey/register/begin', { method: 'POST' })
   const options = await res.json()
   if (!res.ok) throw new Error(options.error)
 
   const credential = await startRegistration(options)
 
-  const verifyRes = await fetch('/api/auth/register/complete', {
+  const verifyRes = await fetch('/api/auth/passkey/register/complete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ homeId, personName, credential, challenge: options.challenge }),
+    body: JSON.stringify({ credential, challenge: options.challenge }),
   })
   const result = await verifyRes.json()
   if (!verifyRes.ok) throw new Error(result.error)
-
-  localStorage.setItem('passkey_registered', 'true')
 }
 
-export async function loginWithPasskey(homeId?: string) {
-  const body = homeId ? { homeId } : {}
-  const res = await fetch('/api/auth/login/begin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+export async function loginWithPasskey() {
+  const res = await fetch('/api/auth/passkey/login/begin', { method: 'POST' })
   const options = await res.json()
   if (!res.ok) throw new Error(options.error)
 
   const credential = await startAuthentication(options)
 
-  const verifyRes = await fetch('/api/auth/login/complete', {
+  const verifyRes = await fetch('/api/auth/passkey/login/complete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ credential, challenge: options.challenge }),
@@ -44,10 +34,5 @@ export async function loginWithPasskey(homeId?: string) {
   const result = await verifyRes.json()
   if (!verifyRes.ok) throw new Error(result.error)
 
-  localStorage.setItem('home_id', result.homeId)
-  localStorage.setItem('person_name', result.personName)
-  localStorage.setItem('auth_token', result.token)
-  localStorage.setItem('passkey_registered', 'true')
-
-  return result
+  await signIn('passkey', { token: result.token, callbackUrl: result.url })
 }

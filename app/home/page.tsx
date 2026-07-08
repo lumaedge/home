@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { loadIdentity, apiFetch, getPersonLabel } from '@/lib/identity'
-import { HOME_CONFIG } from '@/lib/home-config'
+import { useSession } from 'next-auth/react'
+import { registerPasskey } from '@/lib/auth-client'
 import EntryCard from '@/components/EntryCard'
 import Link from 'next/link'
 
@@ -28,105 +27,53 @@ function getTimeOfDay() {
 function houseVoice(entries: any[]) {
   const weekAgo = Date.now() - 7 * 86400000
   const recent = entries.filter((e: any) => new Date(e.createdAt).getTime() > weekAgo)
-
   const hardWords = ['hard', 'sad', 'heavy', 'tired', 'lonely', 'hurt', 'pain', 'cry', 'anxious', 'overwhelmed']
-  const heavyCount = recent.filter((e: any) =>
-    hardWords.some((w) => e.content.toLowerCase().includes(w))
-  ).length
-
-  if (recent.length === 0) {
-    const voices = [
-      'The house has been quiet. Peacefully so.',
-      'Everything is still. In a good way.',
-      'The walls are resting. So should you.',
-      'Not a sound. Just the soft hum of being together.',
-    ]
-    return voices[Math.floor(Math.random() * voices.length)]
-  }
-
-  if (heavyCount >= 3) {
-    const voices = [
-      'There have been a lot of heavy thoughts resting here lately.',
-      'The house has felt a little quieter this week.',
-      'Some seasons ask more than expected. This space can hold it all.',
-      'The home has been holding space for some heavy days.',
-    ]
-    return voices[Math.floor(Math.random() * voices.length)]
-  }
-
-  if (recent.length >= 5) {
-    const voices = [
-      'The walls feel warm this week.',
-      'There has been so much life here lately.',
-      'This home is full. Not of things. Of moments.',
-    ]
-    return voices[Math.floor(Math.random() * voices.length)]
-  }
-
-  const voices = [
-    'Welcome home. The kettle just boiled.',
-    'The door is always unlocked.',
-    'Come in. There\'s no rush.',
-    'The house has been waiting. Quietly. Patiently.',
-  ]
-  return voices[Math.floor(Math.random() * voices.length)]
+  const heavyCount = recent.filter((e: any) => hardWords.some((w) => e.content.toLowerCase().includes(w))).length
+  if (recent.length === 0) return ['The house has been quiet. Peacefully so.', 'Everything is still. In a good way.', 'The walls are resting. So should you.', 'Not a sound. Just the soft hum of being together.'][Math.floor(Math.random() * 4)]
+  if (heavyCount >= 3) return ['There have been a lot of heavy thoughts resting here lately.', 'The house has felt a little quieter this week.', 'Some seasons ask more than expected. This space can hold it all.', 'The home has been holding space for some heavy days.'][Math.floor(Math.random() * 4)]
+  if (recent.length >= 5) return ['The walls feel warm this week.', 'There has been so much life here lately.', 'This home is full. Not of things. Of moments.'][Math.floor(Math.random() * 3)]
+  return ['Welcome home. The kettle just boiled.', 'The door is always unlocked.', "Come in. There's no rush.", "The house has been waiting. Quietly. Patiently."][Math.floor(Math.random() * 4)]
 }
 
 export default function HomePage() {
-  const router = useRouter()
-  const [name, setName] = useState('')
+  const { data: session } = useSession()
   const [entries, setEntries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [partnerPresent, setPartnerPresent] = useState(false)
-  const [partnerName, setPartnerName] = useState('')
+  const [passkeyDone, setPasskeyDone] = useState(false)
 
   const season = getSeason()
   const time = getTimeOfDay()
 
   useEffect(() => {
-    const { homeId, name: n } = loadIdentity()
-    if (!homeId || !n) { router.replace('/'); return }
-    setName(n)
-
     const fetchAll = async () => {
       try {
         const [entriesRes, presenceRes] = await Promise.all([
-          apiFetch('/api/entries'),
-          apiFetch('/api/presence'),
+          fetch('/api/entries'),
+          fetch('/api/presence'),
         ])
         if (entriesRes.ok) setEntries(await entriesRes.json())
         if (presenceRes.ok) {
           const p = await presenceRes.json()
           setPartnerPresent(p.present)
-          setPartnerName(p.partnerName || '')
         }
       } catch {} finally { setLoading(false) }
     }
-
     fetchAll()
     const interval = setInterval(async () => {
       try {
-        await apiFetch('/api/presence', { method: 'POST' })
-        const res = await apiFetch('/api/presence')
-        if (res.ok) {
-          const p = await res.json()
-          setPartnerPresent(p.present)
-          setPartnerName(p.partnerName || '')
-        }
+        await fetch('/api/presence', { method: 'POST' })
+        const res = await fetch('/api/presence')
+        if (res.ok) { const p = await res.json(); setPartnerPresent(p.present) }
       } catch {}
     }, 15000)
-
     return () => clearInterval(interval)
-  }, [router])
-
-  const todayEntries = entries.filter((e: any) => {
-    const d = new Date(e.createdAt)
-    return d.toDateString() === new Date().toDateString()
-  })
+  }, [])
 
   if (loading) return <div className="pt-20 text-center text-xs text-warm-300">...</div>
 
   const voice = houseVoice(entries)
+  const todayEntries = entries.filter((e: any) => new Date(e.createdAt).toDateString() === new Date().toDateString())
 
   return (
     <div className={`space-y-10 transition-all duration-1000 bg-gradient-to-b ${time.gradient}`}>
@@ -134,14 +81,10 @@ export default function HomePage() {
         <div className={`mx-auto mb-6 h-28 w-full max-w-[200px] rounded-2xl bg-gradient-to-b ${season.window} flex items-center justify-center transition-all duration-1000 ${partnerPresent ? 'shadow-[0_0_20px_rgba(168,115,70,0.2)]' : 'shadow-inner'}`}>
           <span className="text-3xl opacity-60">{season.icon}</span>
         </div>
-
         <div className="text-center">
           <p className="mb-1 text-[10px] uppercase tracking-widest text-warm-300">{time.label}</p>
-          <h1 className="font-serif text-2xl text-warm-800">
-            Welcome home.
-          </h1>
+          <h1 className="font-serif text-2xl text-warm-800">Welcome home.</h1>
           <p className="mt-3 text-sm italic leading-relaxed text-warm-400">{voice}</p>
-
           {partnerPresent && (
             <div className="mt-5 flex items-center justify-center gap-2 text-xs text-warm-400">
               <span className="text-base">🪟</span>
@@ -151,14 +94,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      <Link
-        href="/home/write"
-        className="card-hover group flex items-center gap-3 border-2 border-dashed border-warm-200 bg-warm-50/50 py-4"
-      >
+      {!passkeyDone && (
+        <div className="text-center">
+          <button onClick={async () => { try { await registerPasskey(); setPasskeyDone(true) } catch {} }} className="text-xs text-warm-400 hover:text-warm-600 underline underline-offset-2">
+            Set up passkey for faster access
+          </button>
+        </div>
+      )}
+
+      <Link href="/home/write" className="card-hover group flex items-center gap-3 border-2 border-dashed border-warm-200 bg-warm-50/50 py-4">
         <span className="text-xl">✍️</span>
-        <span className="text-sm text-warm-500 group-hover:text-warm-700 transition-colors">
-          Leave something here
-        </span>
+        <span className="text-sm text-warm-500 group-hover:text-warm-700 transition-colors">Leave something here</span>
       </Link>
 
       {todayEntries.length === 0 && entries.length === 0 && (
@@ -180,15 +126,13 @@ export default function HomePage() {
       {entries.length > 0 && (
         <section className="space-y-3">
           {entries.slice(0, 5).map((entry: any) => (
-            <EntryCard key={entry.id} entry={entry} isOwn={entry.authorName === name} />
+            <EntryCard key={entry.id} entry={entry} isOwn={entry.authorId === session?.user?.id} />
           ))}
         </section>
       )}
 
       <footer className="pb-4 text-center">
-        <p className="text-[10px] text-warm-300">
-          Take your time. Nothing here is urgent.
-        </p>
+        <p className="text-[10px] text-warm-300">Take your time. Nothing here is urgent.</p>
       </footer>
     </div>
   )

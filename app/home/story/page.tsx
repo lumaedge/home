@@ -1,30 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { loadIdentity, apiFetch } from '@/lib/identity'
+import { useSession } from 'next-auth/react'
 import EntryCard from '@/components/EntryCard'
 
 export default function StoryPage() {
-  const router = useRouter()
-  const [name, setName] = useState('')
+  const { data: session } = useSession()
   const [entries, setEntries] = useState<any[]>([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const { homeId, name: n } = loadIdentity()
-    if (!homeId || !n) { router.replace('/'); return }
-    setName(n)
-    apiFetch('/api/entries').then(async (res) => {
+    fetch('/api/entries').then(async (res) => {
       if (res.ok) {
         const data = await res.json()
         setEntries(data)
-        setIndex(Math.floor(Math.random() * data.length))
+        if (data.length > 0) setIndex(Math.floor(Math.random() * data.length))
       }
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [router])
+  }, [])
 
   if (loading) return <div className="pt-20 text-center text-xs text-warm-300">...</div>
 
@@ -52,15 +47,11 @@ export default function StoryPage() {
         <span className="text-3xl">🔥</span>
         <h1 className="mt-2 font-serif text-lg text-warm-700">Do you remember this?</h1>
       </div>
-
       <div key={entry.id} className="w-full fade-in">
-        <EntryCard entry={entry} isOwn={entry.authorName === name} />
+        <EntryCard entry={entry} isOwn={entry.authorId === session?.user?.id} />
       </div>
-
       <div className="mt-8 flex gap-4">
-        <button onClick={next} className="btn-ghost text-xs">
-          Another log
-        </button>
+        <button onClick={next} className="btn-ghost text-xs">Another log</button>
       </div>
     </div>
   )
