@@ -13,12 +13,12 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  hashedPassword String?
   createdAt     DateTime  @default(now())
 
   accounts  Account[]
   sessions  Session[]
   homes     HomeMember[]
-  passkeys  PasskeyCredential[]
   entries   Entry[]
   createdHomes Home[]
 }
@@ -126,19 +126,4 @@ model EntryCorner {
   @@id([entryId, cornerId])
 }
 
-model PasskeyCredential {
-  id         String   @id
-  userId     String
-  publicKey  Bytes
-  counter    BigInt   @default(0)
-  transports String[]
-  createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Challenge {
-  id        String   @id @default(cuid())
-  value     String   @unique
-  expiresAt DateTime
-}

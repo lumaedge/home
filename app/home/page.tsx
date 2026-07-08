@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { registerPasskey } from '@/lib/auth-client'
 import EntryCard from '@/components/EntryCard'
 import Link from 'next/link'
 
@@ -40,8 +39,6 @@ export default function HomePage() {
   const [entries, setEntries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [partnerPresent, setPartnerPresent] = useState(false)
-  const [passkeyDone, setPasskeyDone] = useState(false)
-
   const season = getSeason()
   const time = getTimeOfDay()
 
@@ -93,14 +90,6 @@ export default function HomePage() {
           )}
         </div>
       </section>
-
-      {!passkeyDone && (
-        <div className="text-center">
-          <button onClick={async () => { try { await registerPasskey(); setPasskeyDone(true) } catch {} }} className="text-xs text-warm-400 hover:text-warm-600 underline underline-offset-2">
-            Set up passkey for faster access
-          </button>
-        </div>
-      )}
 
       <Link href="/home/write" className="card-hover group flex items-center gap-3 border-2 border-dashed border-warm-200 bg-warm-50/50 py-4">
         <span className="text-xl">✍️</span>
