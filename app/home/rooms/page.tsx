@@ -23,34 +23,43 @@ export default function RoomsPage() {
   if (loading) return <div className="pt-20 text-center text-xs text-warm-300">...</div>
 
   const alive = corners.filter((c: any) => c._count.entries > 0)
+  const aliveNames = new Set(alive.map((c: any) => c.name))
 
   return (
     <div>
-      <h1 className="mb-6 font-serif text-xl text-warm-700">Rooms</h1>
-      <p className="mb-8 text-xs text-warm-400">Places that have grown into your home.</p>
-      {alive.length === 0 ? (
-        <div className="py-12 text-center">
-          <div className="mb-3 text-3xl">🏡</div>
-          <p className="font-serif text-sm text-warm-400">Your rooms will appear here</p>
-          <p className="mt-1 text-xs text-warm-300">as you fill your home with thoughts.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {alive.map((corner: any) => {
-            const def = ROOMS.find((c) => c.name === corner.name)
+      <h1 className="mb-2 font-serif text-xl text-warm-700">Rooms</h1>
+      <p className="mb-8 text-xs text-warm-400">A hallway. Some doors are open. Some are waiting.</p>
+      <div className="grid grid-cols-2 gap-3">
+        {ROOMS.map((room) => {
+          const corner = corners.find((c: any) => c.name === room.name)
+          const isOpen = corner && aliveNames.has(room.name)
+          if (isOpen) {
             return (
               <Link
                 key={corner.id}
                 href={`/home/rooms/${corner.id}`}
                 className="card-hover flex flex-col items-center gap-2 py-6 text-center"
               >
-                <span className="text-2xl">{def?.icon}</span>
-                <span className="text-xs font-medium text-warm-700">{corner.name}</span>
+                <span className="text-2xl">{room.icon}</span>
+                <span className="text-xs font-medium text-warm-700">{room.name}</span>
+                <span className="text-[10px] text-warm-300">{corner._count.entries}</span>
               </Link>
             )
-          })}
-        </div>
-      )}
+          }
+          return (
+            <div
+              key={room.name}
+              className="flex flex-col items-center gap-2 rounded-2xl border border-warm-200/40 bg-warm-50/30 py-6 text-center opacity-60"
+            >
+              <span className="text-2xl opacity-40">{room.icon}</span>
+              <span className="text-xs font-medium text-warm-400">{room.name}</span>
+              <span className="px-3 text-[10px] italic text-warm-300 leading-relaxed">
+                {room.description.split('\n')[0]}
+              </span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

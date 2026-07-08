@@ -7,24 +7,69 @@ import { getDailySentence } from '@/lib/sentences'
 import EntryCard from '@/components/EntryCard'
 import Link from 'next/link'
 
-function getAtmosphere() {
-  const h = new Date().getHours()
-  if (h >= 5 && h < 12) return { gradient: 'from-amber-50/40 to-warm-50', icon: '🌅', label: 'morning' }
-  if (h >= 12 && h < 17) return { gradient: 'from-warm-100/30 to-warm-50', icon: '☀️', label: 'afternoon' }
-  if (h >= 17 && h < 21) return { gradient: 'from-amber-100/40 to-warm-50', icon: '🌇', label: 'evening' }
-  return { gradient: 'from-indigo-50/40 to-warm-50', icon: '🌙', label: 'night' }
+function getSeason() {
+  const m = new Date().getMonth()
+  if (m >= 2 && m <= 4) return { name: 'spring', icon: '🌸', window: 'from-pink-100/30 via-amber-50/20 to-sky-100/30' }
+  if (m >= 5 && m <= 7) return { name: 'summer', icon: '🌻', window: 'from-amber-100/30 via-warm-50/20 to-sky-200/30' }
+  if (m >= 8 && m <= 10) return { name: 'autumn', icon: '🍂', window: 'from-orange-100/30 via-amber-50/20 to-warm-100/30' }
+  return { name: 'winter', icon: '❄️', window: 'from-slate-100/30 via-indigo-50/20 to-blue-100/30' }
 }
 
-function getMilestones(entries: any[]) {
-  const m: string[] = []
-  const uniqueDays = new Set(entries.map((e: any) => new Date(e.createdAt).toDateString())).size
-  if (uniqueDays >= 1) m.push('🌱')
-  if (uniqueDays >= 3) m.push('📚')
-  if (uniqueDays >= 7) m.push('🪴')
-  if (uniqueDays >= 14) m.push('🕯️')
-  if (uniqueDays >= 30) m.push('🖼️')
-  if (entries.length >= 10) m.push('🧸')
-  return m
+function getTimeOfDay() {
+  const h = new Date().getHours()
+  if (h >= 5 && h < 8) return { label: 'dawn', gradient: 'from-amber-50/50 to-warm-50' }
+  if (h >= 8 && h < 12) return { label: 'morning', gradient: 'from-amber-50/30 to-warm-50' }
+  if (h >= 12 && h < 17) return { label: 'afternoon', gradient: 'from-warm-100/20 to-warm-50' }
+  if (h >= 17 && h < 20) return { label: 'golden hour', gradient: 'from-amber-100/50 to-warm-50' }
+  if (h >= 20 && h < 23) return { label: 'evening', gradient: 'from-indigo-50/30 to-warm-50' }
+  return { label: 'night', gradient: 'from-indigo-100/20 to-warm-50' }
+}
+
+function houseVoice(entries: any[]) {
+  const weekAgo = Date.now() - 7 * 86400000
+  const recent = entries.filter((e: any) => new Date(e.createdAt).getTime() > weekAgo)
+
+  const hardWords = ['hard', 'sad', 'heavy', 'tired', 'lonely', 'hurt', 'pain', 'cry', 'anxious', 'overwhelmed']
+  const heavyCount = recent.filter((e: any) =>
+    hardWords.some((w) => e.content.toLowerCase().includes(w))
+  ).length
+
+  if (recent.length === 0) {
+    const voices = [
+      'The house has been quiet. Peacefully so.',
+      'Everything is still. In a good way.',
+      'The walls are resting. So should you.',
+      'Not a sound. Just the soft hum of being together.',
+    ]
+    return voices[Math.floor(Math.random() * voices.length)]
+  }
+
+  if (heavyCount >= 3) {
+    const voices = [
+      'It\'s been a lot lately. Take your time today.',
+      'The house knows. You don\'t have to say anything more.',
+      'Some seasons ask more of us. This space can hold it.',
+      'Be gentle with yourself today. The home is.',
+    ]
+    return voices[Math.floor(Math.random() * voices.length)]
+  }
+
+  if (recent.length >= 5) {
+    const voices = [
+      'There\'s been a lot of life here lately. It\'s beautiful.',
+      'The walls are warm from all the words shared this week.',
+      'This home is full. Not of things. Of moments.',
+    ]
+    return voices[Math.floor(Math.random() * voices.length)]
+  }
+
+  const voices = [
+    'Welcome home. The kettle just boiled.',
+    'The door is always unlocked.',
+    'Come in. There\'s no rush.',
+    'The house has been waiting. Quietly. Patiently.',
+  ]
+  return voices[Math.floor(Math.random() * voices.length)]
 }
 
 export default function HomePage() {
@@ -35,7 +80,8 @@ export default function HomePage() {
   const [partnerPresent, setPartnerPresent] = useState(false)
   const [partnerName, setPartnerName] = useState('')
 
-  const atmosphere = getAtmosphere()
+  const season = getSeason()
+  const time = getTimeOfDay()
 
   useEffect(() => {
     const { homeId, name: n } = loadIdentity()
@@ -78,34 +124,32 @@ export default function HomePage() {
     const d = new Date(e.createdAt)
     return d.toDateString() === new Date().toDateString()
   })
-  const milestones = getMilestones(entries)
-  const roomsCount = entries.filter((e: any) => e.corners?.length > 0).length
 
   if (loading) return <div className="pt-20 text-center text-xs text-warm-300">...</div>
 
+  const voice = houseVoice(entries)
+
   return (
-    <div className={`space-y-10 transition-all duration-1000 bg-gradient-to-b ${atmosphere.gradient}`}>
-      <section className="fade-in text-center pt-8 relative">
-        <div className="mb-2 text-3xl">{atmosphere.icon}</div>
-        <h1 className="font-serif text-2xl text-warm-800">
-          Welcome Home, {name}.
-        </h1>
-        <p className="mt-2 text-sm italic text-warm-400">{sentence}</p>
+    <div className={`space-y-10 transition-all duration-1000 bg-gradient-to-b ${time.gradient}`}>
+      <section className="fade-in pt-8 relative">
+        <div className={`mx-auto mb-6 h-28 w-full max-w-[200px] rounded-2xl bg-gradient-to-b ${season.window} shadow-inner flex items-center justify-center`}>
+          <span className="text-3xl opacity-60">{season.icon}</span>
+        </div>
 
-        {partnerPresent && (
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-warm-400">
-            <span className="flex h-2 w-2 rounded-full bg-warm-400 shadow-[0_0_6px_rgba(168,115,70,0.4)]" />
-            {partnerName} is home
-          </div>
-        )}
+        <div className="text-center">
+          <p className="mb-1 text-[10px] uppercase tracking-widest text-warm-300">{time.label}</p>
+          <h1 className="font-serif text-2xl text-warm-800">
+            Welcome home, {name}.
+          </h1>
+          <p className="mt-3 text-sm italic leading-relaxed text-warm-400">{voice}</p>
 
-        {milestones.length > 0 && (
-          <div className="mt-4 flex justify-center gap-2 text-lg">
-            {milestones.map((m, i) => (
-              <span key={i} className="fade-in" style={{ animationDelay: `${i * 0.1}s` }}>{m}</span>
-            ))}
-          </div>
-        )}
+          {partnerPresent && (
+            <div className="mt-5 flex items-center justify-center gap-2 text-xs text-warm-400">
+              <span className="flex h-2 w-2 rounded-full bg-warm-400 shadow-[0_0_8px_rgba(168,115,70,0.5)]" />
+              {partnerName} is home
+            </div>
+          )}
+        </div>
       </section>
 
       <Link
@@ -142,12 +186,7 @@ export default function HomePage() {
         </section>
       )}
 
-      <footer className="pb-4 text-center space-y-2">
-        {roomsCount > 0 && (
-          <Link href="/home/rooms" className="block text-[10px] text-warm-300 hover:text-warm-500 transition-colors">
-            🚪 Rooms
-          </Link>
-        )}
+      <footer className="pb-4 text-center">
         <p className="text-[10px] text-warm-300">
           Take your time. Nothing here is urgent.
         </p>

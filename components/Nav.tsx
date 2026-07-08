@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { clearIdentity, loadIdentity } from '@/lib/identity'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const links = [
   { href: '/home', label: 'Home', icon: '🏠' },
@@ -55,13 +55,38 @@ export default function Nav() {
   )
 }
 
+function seasonName(date: Date) {
+  const m = date.getMonth()
+  if (m >= 2 && m <= 4) return 'spring'
+  if (m >= 5 && m <= 7) return 'summer'
+  if (m >= 8 && m <= 10) return 'autumn'
+  return 'winter'
+}
+
+function builtPoem(createdAt: string) {
+  const d = new Date(createdAt)
+  const season = seasonName(d)
+  const year = d.getFullYear()
+  const now = new Date()
+  const seasons = ['spring', 'summer', 'autumn', 'winter']
+  const startIdx = seasons.indexOf(season)
+  const currentIdx = seasons.indexOf(seasonName(now))
+  const yearsDiff = now.getFullYear() - year
+  const seasonsPassed = yearsDiff * 4 + (currentIdx - startIdx)
+
+  if (seasonsPassed <= 1) return `Built together in ${season}.`
+  return `This home has seen ${seasonsPassed} seasons.`
+}
+
 function InfoSheet() {
   const router = useRouter()
   const { homeId } = loadIdentity()
   const [key, setKey] = useState('')
   const [people, setPeople] = useState('')
+  const [built, setBuilt] = useState('')
+  const [copied, setCopied] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
     if (!homeId) return
     fetch('/api/home', { headers: { 'x-home-id': homeId } })
       .then(r => r.ok && r.json())
@@ -69,8 +94,9 @@ function InfoSheet() {
         setKey(d.inviteCode)
         const names = [d.person1, d.person2].filter(Boolean)
         setPeople(names.join(' & '))
+        if (d.createdAt) setBuilt(builtPoem(d.createdAt))
       })
-  })
+  }, [homeId])
 
   return (
     <div className="space-y-4 text-sm">
@@ -79,13 +105,13 @@ function InfoSheet() {
           <span className="text-lg">🔑</span>
           <div>
             <p className="text-xs text-warm-400">Home Key</p>
-            <p className="font-serif text-warm-700">{key}</p>
+            <p className="font-serif text-warm-700">{key || '...'}</p>
           </div>
           <button
-            onClick={() => { navigator.clipboard.writeText(key); alert('Copied') }}
+            onClick={() => { navigator.clipboard.writeText(key); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
             className="btn-ghost ml-auto text-xs"
           >
-            Copy
+            {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
       </div>
@@ -95,6 +121,14 @@ function InfoSheet() {
           <p className="text-warm-700">{people || 'You'}</p>
         </div>
       </div>
+      {built && (
+        <div className="rounded-xl bg-warm-50 p-4">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🏡</span>
+            <p className="text-xs italic text-warm-400">{built}</p>
+          </div>
+        </div>
+      )}
       <Link href="/home/rooms" className="btn-ghost w-full text-xs">
         🚪 Rooms
       </Link>
