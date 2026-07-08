@@ -46,6 +46,21 @@ export function isFirstVisit(): boolean {
   return !localStorage.getItem(PERSON_KEY)
 }
 
+export function identifyFromUrl(): boolean {
+  if (typeof window === 'undefined') return false
+  if (localStorage.getItem(PERSON_KEY)) return false
+  const params = new URLSearchParams(window.location.search)
+  const forParam = params.get('for')
+  if (forParam === HOME_CONFIG.person2.urlParam) {
+    setPerson(HOME_CONFIG.person2)
+  } else if (forParam === HOME_CONFIG.person1.urlParam) {
+    setPerson(HOME_CONFIG.person1)
+  } else {
+    setPerson(HOME_CONFIG.person1)
+  }
+  return true
+}
+
 export function getOtherPerson(): PersonConfig | null {
   const myName = localStorage.getItem(PERSON_KEY)
   if (!myName) return null

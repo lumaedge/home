@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { HOME_CONFIG } from '@/lib/home-config'
-import { isFirstVisit, loadIdentity } from '@/lib/identity'
+import { isFirstVisit, identifyFromUrl } from '@/lib/identity'
 import WelcomeTour from '@/components/WelcomeTour'
 
 export default function LandingPage() {
@@ -20,6 +20,7 @@ export default function LandingPage() {
       router.replace('/home')
       return
     }
+    identifyFromUrl()
     setShowTour(true)
     setChecking(false)
   }, [router])

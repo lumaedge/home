@@ -46,18 +46,18 @@ function houseVoice(entries: any[]) {
 
   if (heavyCount >= 3) {
     const voices = [
-      'It\'s been a lot lately. Take your time today.',
-      'The house knows. You don\'t have to say anything more.',
-      'Some seasons ask more of us. This space can hold it.',
-      'Be gentle with yourself today. The home is.',
+      'There have been a lot of heavy thoughts resting here lately.',
+      'The house has felt a little quieter this week.',
+      'Some seasons ask more than expected. This space can hold it all.',
+      'The home has been holding space for some heavy days.',
     ]
     return voices[Math.floor(Math.random() * voices.length)]
   }
 
   if (recent.length >= 5) {
     const voices = [
-      'There\'s been a lot of life here lately. It\'s beautiful.',
-      'The walls are warm from all the words shared this week.',
+      'The walls feel warm this week.',
+      'There has been so much life here lately.',
       'This home is full. Not of things. Of moments.',
     ]
     return voices[Math.floor(Math.random() * voices.length)]
@@ -131,7 +131,7 @@ export default function HomePage() {
   return (
     <div className={`space-y-10 transition-all duration-1000 bg-gradient-to-b ${time.gradient}`}>
       <section className="fade-in pt-8 relative">
-        <div className={`mx-auto mb-6 h-28 w-full max-w-[200px] rounded-2xl bg-gradient-to-b ${season.window} shadow-inner flex items-center justify-center`}>
+        <div className={`mx-auto mb-6 h-28 w-full max-w-[200px] rounded-2xl bg-gradient-to-b ${season.window} flex items-center justify-center transition-all duration-1000 ${partnerPresent ? 'shadow-[0_0_20px_rgba(168,115,70,0.2)]' : 'shadow-inner'}`}>
           <span className="text-3xl opacity-60">{season.icon}</span>
         </div>
 
@@ -144,8 +144,8 @@ export default function HomePage() {
 
           {partnerPresent && (
             <div className="mt-5 flex items-center justify-center gap-2 text-xs text-warm-400">
-              <span className="flex h-2 w-2 rounded-full bg-warm-400 shadow-[0_0_8px_rgba(168,115,70,0.5)]" />
-              {HOME_CONFIG.personalMode ? 'You\'re both home' : `${partnerName} is home`}
+              <span className="text-base">🪟</span>
+              <span className="italic">The lamp is on.</span>
             </div>
           )}
         </div>

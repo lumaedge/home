@@ -59,20 +59,8 @@ export default function StoryPage() {
 
       <div className="mt-8 flex gap-4">
         <button onClick={next} className="btn-ghost text-xs">
-          Show another
+          Another log
         </button>
-        {entries.length > 7 && (
-          <button
-            onClick={() => {
-              const all = [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-              setEntries(all)
-              setIndex(0)
-            }}
-            className="btn-ghost text-xs"
-          >
-            All moments
-          </button>
-        )}
       </div>
     </div>
   )
