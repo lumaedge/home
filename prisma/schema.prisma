@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Home {
+  id         String       @id @default(cuid())
+  name       String       @default("Home")
+  inviteCode String       @unique
+  person1         String
+  person2         String?
+  person1SeenAt   DateTime?
+  person2SeenAt   DateTime?
+  entries         Entry[]
+  corners         Corner[]
+  createdAt       DateTime     @default(now())
+}
+
+model Entry {
+  id         String       @id @default(cuid())
+  content    String
+  authorName String
+  homeId     String
+  home       Home         @relation(fields: [homeId], references: [id])
+  corners    EntryCorner[]
+  createdAt  DateTime     @default(now())
+}
+
+model Corner {
+  id        String       @id @default(cuid())
+  icon      String
+  name      String
+  homeId    String
+  home      Home         @relation(fields: [homeId], references: [id])
+  entries   EntryCorner[]
+  createdAt DateTime     @default(now())
+}
+
+model EntryCorner {
+  entryId   String
+  entry     Entry    @relation(fields: [entryId], references: [id])
+  cornerId  String
+  corner    Corner   @relation(fields: [cornerId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([entryId, cornerId])
+}
