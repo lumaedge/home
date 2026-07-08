@@ -21,10 +21,17 @@ export async function POST(req: NextRequest) {
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
   if (action === 'create') {
-    const code = generateHomeKey()
-    const home = await prisma.home.create({
-      data: { inviteCode: code, person1: name },
-    })
+    let code: string
+    let home: any
+    for (let attempt = 0; attempt < 5; attempt++) {
+      code = generateHomeKey()
+      try {
+        home = await prisma.home.create({ data: { inviteCode: code, person1: name } })
+        break
+      } catch (err: any) {
+        if (err.code !== 'P2002' || attempt === 4) throw err
+      }
+    }
 
     await prisma.corner.createMany({
       data: ROOMS.map((c) => ({ icon: c.icon, name: c.name, homeId: home.id })),

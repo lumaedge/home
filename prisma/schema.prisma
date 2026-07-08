@@ -28,6 +28,8 @@ model Entry {
   home       Home         @relation(fields: [homeId], references: [id])
   corners    EntryCorner[]
   createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  deletedAt  DateTime?
 }
 
 model Corner {
