@@ -76,6 +76,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ homeId: home.id, name: userName, inviteToken })
   }
 
+  if (action === 'invite') {
+    const home = await prisma.home.findFirst({
+      where: {
+        members: { some: { userId } },
+      },
+      include: { members: true },
+    })
+    if (!home) return NextResponse.json({ error: 'no home' }, { status: 404 })
+    const member = home.members[0]
+    const inviteToken = await new SignJWT({ homeId: home.id, inviter: member.personName })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('365d')
+      .sign(secret)
+    return NextResponse.json({ inviteToken })
+  }
+
   if (action === 'join') {
     if (!inviteToken) return NextResponse.json({ error: 'invite token required' }, { status: 400 })
     try {

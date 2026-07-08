@@ -78,10 +78,21 @@ function InfoSheet() {
   const router = useRouter()
   const [info, setInfo] = useState<any>(null)
   const [roomCount, setRoomCount] = useState(0)
+  const [inviteToken, setInviteToken] = useState('')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     fetch('/api/home/mine').then(r => r.json()).then(d => {
       if (d.home) setInfo(d.home)
+      if (d.home) {
+        fetch('/api/home', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'invite' }),
+        }).then(r => r.json()).then(t => {
+          if (t.inviteToken) setInviteToken(t.inviteToken)
+        })
+      }
     })
     fetch('/api/corners').then(r => r.ok && r.json()).then(c => {
       if (c) setRoomCount(c.filter((r: any) => r._count.entries > 0).length)
@@ -100,6 +111,25 @@ function InfoSheet() {
           </div>
         </div>
       </div>
+      {inviteToken && (
+        <div className="rounded-xl bg-warm-50 p-4">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🕯️</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-warm-400">Invite</p>
+              <p className="truncate text-xs text-warm-500">
+                {typeof window !== 'undefined' ? `${window.location.origin}/?token=${inviteToken}` : ''}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => {
+            const url = `${window.location.origin}/?token=${inviteToken}`
+            navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+          }} className="btn-ghost mt-2 w-full text-xs text-warm-500 hover:text-warm-700">
+            {copied ? 'Copied!' : 'Copy invite link'}
+          </button>
+        </div>
+      )}
       <div className="rounded-xl bg-warm-50 p-4">
         <div className="flex items-center gap-3">
           <span className="text-lg">🚪</span>
