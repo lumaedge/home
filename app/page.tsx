@@ -4,7 +4,12 @@ import { useState, useEffect } from 'react'
 import { useSession, signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
-type Step = 'loading' | 'welcome' | 'name' | 'credentials' | 'setup' | 'ready'
+type Step = 'loading' | 'welcome' | 'invite' | 'name' | 'credentials' | 'setup' | 'ready'
+
+function getParam(key: string) {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get(key)
+}
 
 export default function LandingPage() {
   const { data: session, status } = useSession()
@@ -17,21 +22,34 @@ export default function LandingPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const token = getParam('token')
+
   useEffect(() => {
     if (status === 'loading') return
 
     if (status === 'authenticated') {
       fetch('/api/home/mine').then(r => r.json()).then(data => {
         if (data.home) router.replace('/home')
-        else setStep('setup')
+        else if (token) {
+          fetch('/api/home', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'join', inviteToken: token }),
+          }).then(r => r.json()).then(j => {
+            if (j.homeId) router.replace('/home')
+            else { setError('This invitation could not be used.'); setStep('welcome') }
+          })
+        } else setStep('setup')
       })
       return
     }
 
+    if (token) { setStep('invite'); return }
+
     const saved = localStorage.getItem('home_name')
     if (saved) setName(saved)
     setStep('welcome')
-  }, [status, router])
+  }, [status, router, token])
 
   useEffect(() => {
     if (step !== 'setup' || !session?.user?.id) return
@@ -58,9 +76,7 @@ export default function LandingPage() {
       if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
       localStorage.setItem('home_name', name.trim())
       await signIn('credentials', { email: email.trim(), password, callbackUrl: '/' })
-    } catch (e: any) {
-      setError(e.message)
-    } finally { setBusy(false) }
+    } catch (e: any) { setError(e.message) } finally { setBusy(false) }
   }
 
   async function handleSignIn() {
@@ -80,15 +96,36 @@ export default function LandingPage() {
           <div className="mb-4 text-5xl">🏡</div>
           <h1 className="mb-2 font-serif text-3xl text-warm-800">Home</h1>
           <p className="mb-10 text-sm italic text-warm-400">A quiet place for two.</p>
-          <button onClick={() => setStep('name')} className="btn-primary mb-3 w-full">
-            Create Your Home
-          </button>
-          <button onClick={() => {
-            localStorage.removeItem('home_name')
-            setStep('credentials')
-          }} className="btn-ghost w-full text-sm">
-            Come back
-          </button>
+          <button onClick={() => setStep('name')} className="btn-primary mb-3 w-full">Create Your Home</button>
+          <button onClick={() => { localStorage.removeItem('home_name'); setStep('credentials') }} className="btn-ghost w-full text-sm">Come back</button>
+          {error && <p className="mt-4 text-xs text-red-500">{error}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'invite') {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-warm-50">
+        <div className="max-w-sm px-6 text-center">
+          <div className="mb-4 text-4xl">🕯️</div>
+          <h2 className="mb-2 font-serif text-xl text-warm-700">Come home.</h2>
+          <p className="mb-8 text-sm italic text-warm-400">Sign in with your email to accept the invitation.</p>
+          <div className="space-y-4">
+            <input autoFocus value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="Email" type="email"
+              className="w-full rounded-xl border border-warm-200 bg-white px-4 py-3 text-center text-warm-700 outline-none focus:border-warm-400"
+            />
+            <input value={password} onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSignIn() }}
+              placeholder="Password" type="password"
+              className="w-full rounded-xl border border-warm-200 bg-white px-4 py-3 text-center text-warm-700 outline-none focus:border-warm-400"
+            />
+            <button onClick={handleSignIn} disabled={busy || !email.trim() || !password.trim()}
+              className="btn-primary w-full disabled:opacity-40">
+              {busy ? '...' : 'Come home'}
+            </button>
+          </div>
           {error && <p className="mt-4 text-xs text-red-500">{error}</p>}
         </div>
       </div>
