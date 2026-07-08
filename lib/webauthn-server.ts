@@ -9,14 +9,17 @@ import type { AuthenticatorTransportFuture } from '@simplewebauthn/server'
 
 const rpName = 'Home'
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
+  || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+  || 'http://localhost:3000'
+
 function getRPID(): string {
-  if (process.env.VERCEL_URL) return process.env.VERCEL_URL
-  return 'localhost'
+  return new URL(APP_URL).hostname
 }
 
 function getOrigin(): string {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3000'
+  return APP_URL
 }
 
 export async function beginRegistration(userId: string) {
